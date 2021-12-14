@@ -34,33 +34,42 @@ var fs = require('fs');
 (function libreJSCompliance() {
   const webdriver = require('selenium-webdriver');
   const firefox = require('selenium-webdriver/firefox');
-  new webdriver.Builder().forBrowser('firefox')
-    .setFirefoxOptions(new firefox.Options()
-		       // Uncomment this line to test using icecat
-//		       .setBinary("/usr/bin/icecat")
-		       .headless())
+  new webdriver.Builder()
+    .forBrowser('firefox')
+    .setFirefoxOptions(
+      new firefox.Options()
+        // Uncomment this line to test using icecat
+        //		       .setBinary("/usr/bin/icecat")
+        .headless(),
+    )
     .build()
-    .then(driver =>
-      driver.installAddon("./librejs.xpi", /*isTemporary=*/true)
-	.then(driver.get("about:debugging#/runtime/this-firefox"))
-	.then(_ => driver.findElements(webdriver.By.css('.fieldpair dd')))
-	.then(es => es[2].getText())
-	.then(uuid =>
-	  driver.get(process.argv[2])
-	  // Wait for the webpage to load
-	    .then(_ => driver.sleep(5000))
-	    .then(_ => driver.takeScreenshot())
-	    .then(s => fs.writeFile(
-	      "/tmp/screen.png", Buffer.from(s, 'base64'), "binary",
-	      err => err ? console.log(err) : console.log("Screenshot saved to /tmp/screen.png")))
-	    .then(_ => driver.executeScript("window.open('');"))
-	    .then(_ => driver.getAllWindowHandles())
-	    .then(handles => driver.switchTo().window(handles[1]))
-	    .then(_ => driver.get('moz-extension://'
-			     + uuid
-			     + '/html/display_panel/content/display-panel.html#fromTab=1'))
-	    .then(_ => driver.findElement(webdriver.By.css('div#info')))
-	    .then(e => e.getText())
-	    .then(console.log))
-	.then(_ => driver.quit()));
+    .then((driver) =>
+      driver
+        .installAddon('./librejs.xpi', /*isTemporary=*/ true)
+        .then(driver.get('about:debugging#/runtime/this-firefox'))
+        .then((_) => driver.findElements(webdriver.By.css('.fieldpair dd')))
+        .then((es) => es[2].getText())
+        .then((uuid) =>
+          driver
+            .get(process.argv[2])
+            // Wait for the webpage to load
+            .then((_) => driver.sleep(5000))
+            .then((_) => driver.takeScreenshot())
+            .then((s) =>
+              fs.writeFile('/tmp/screen.png', Buffer.from(s, 'base64'), 'binary', (err) =>
+                err ? console.log(err) : console.log('Screenshot saved to /tmp/screen.png'),
+              ),
+            )
+            .then((_) => driver.executeScript("window.open('');"))
+            .then((_) => driver.getAllWindowHandles())
+            .then((handles) => driver.switchTo().window(handles[1]))
+            .then((_) =>
+              driver.get('moz-extension://' + uuid + '/html/display_panel/content/display-panel.html#fromTab=1'),
+            )
+            .then((_) => driver.findElement(webdriver.By.css('div#info')))
+            .then((e) => e.getText())
+            .then(console.log),
+        )
+        .then((_) => driver.quit()),
+    );
 })();
