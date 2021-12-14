@@ -1,0 +1,3 @@
+node_modules
+webextension/hash_script/output.js
+webextension/test/lib

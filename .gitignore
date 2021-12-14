@@ -9,8 +9,14 @@ node_modules/
 test/lib/
 
 # artifacts
+/compile_temp
+/build_temp
+/build
 librejs.xpi
 bundle.js
 test_bundle.js
+
 npm-debug.log
+
 package-lock.json
+.eslintcache

@@ -1,0 +1,80 @@
+{
+  "name": "gnu-librejs",
+  "version": "7.20.3",
+  "description": "A browser add-on to block nonfree nontrivial JavaScript.",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "dependencies": {
+    "acorn": "8.6.0",
+    "acorn-loose": "8.2.1",
+    "jssha": "3.2.0",
+    "node-fetch": "1.7.2"
+  },
+  "devDependencies": {
+    "@babel/core": "7.16.0",
+    "@babel/preset-env": "7.16.4",
+    "@types/browserify": "12.0.37",
+    "@types/fs-extra": "9.0.13",
+    "@types/glob": "7.2.0",
+    "@types/jasmine": "3.10.2",
+    "@types/jest": "27.0.3",
+    "@types/node": "16.11.12",
+    "@typescript-eslint/eslint-plugin": "5.6.0",
+    "@typescript-eslint/parser": "5.6.0",
+    "autoprefixer": "10.4.0",
+    "babelify": "10.0.0",
+    "browserify": "17.0.0",
+    "chalk": "5.0.0",
+    "chokidar": "3.5.2",
+    "debounce": "1.2.1",
+    "eslint": "8.4.1",
+    "eslint-config-prettier": "8.3.0",
+    "eslint-plugin-prettier": "4.0.0",
+    "fs-extra": "10.0.0",
+    "geckodriver": "2.0.4",
+    "glob": "7.2.0",
+    "husky": "7.0.4",
+    "lint-staged": "12.1.2",
+    "postcss": "8.4.4",
+    "prettier": "2.5.1",
+    "rimraf": "3.0.2",
+    "selenium-webdriver": "^4.1.0",
+    "ts-node": "10.4.0",
+    "tsify": "5.0.4",
+    "typescript": "4.5.2",
+    "web-ext": "6.6.0",
+    "web-ext-types": "3.2.1"
+  },
+  "scripts": {
+    "prepare": "husky install",
+    "build": "node ./scripts/build --test",
+    "build:dev": "node ./scripts/build",
+    "build:prod": "node ./scripts/build",
+    "watch": "node ./scripts/build",
+    "watch:tests": "export RUN_TESTS_ON_BUILD=1 && node ./scripts/build",
+    "compile:ts": "./node_modules/.bin/tsc",
+    "lint": "{ ./node_modules/.bin/eslint --quiet \"webextension/**/*.{js,jsx,ts,tsx}\" \"*.{js,jsx,ts,tsx}\" ; ./node_modules/.bin/tsc --noEmit ; }",
+    "lint:verbose": "{ ./node_modules/.bin/eslint \"webextension/**/*.{js,jsx,ts,tsx}\" \"*.{js,jsx,ts,tsx}\" ; ./node_modules/.bin/tsc --noEmit ; }",
+    "format": "./node_modules/.bin/prettier --write \"webextension/**/*.{js,jsx,ts,tsx}\" \"*.{js,jsx,ts,tsx}\"",
+    "test": "node ./test.js",
+    "release:major": "npm version major -m \"Released new major version %s on `date +'%Y-%m-%d'`.\"",
+    "release:minor": "npm version minor -m \"Released new minor version %s on `date +'%Y-%m-%d'`.\"",
+    "release:patch": "npm version patch -m \"Released new patch version %s on `date +'%Y-%m-%d'`.\"",
+    "preversion": "git pull --ff-only && npm run build && git add .",
+    "webext:firefox": "./node_modules/.bin/web-ext run --source-dir ./build_temp/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://git.sv.gnu.org/librejs.git"
+  },
+  "keywords": [
+    "librejs"
+  ],
+  "author": "",
+  "license": "GPL-3.0+",
+  "lint-staged": {
+    "*.js": "eslint --cache --fix"
+  }
+}
