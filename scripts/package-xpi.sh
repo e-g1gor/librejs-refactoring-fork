@@ -1,7 +1,7 @@
 # PATH=$PATH:./node_modules/.bin
 # which browserify > /dev/null || (echo "can not find browserify" && false) || exit
 
-SRC_DIR=${SRC_DIR:-'.'}
+SRC_DIR=${SRC_DIR:-'build_temp'}
 echo SRC_DIR=$SRC_DIR
 
 BUILD_DIR=${BUILD_DIR:='build_temp'}

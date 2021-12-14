@@ -1,5 +1,8 @@
 const { watch } = require('chokidar');
 const debounce = require('debounce');
+const argv = require('minimist')(process.argv.slice(2));
+const { tests: TESTS_ENABLED, watch: WATCH_ENABLED } = argv;
+console.log({ argv });
 const { exec } = require('child_process');
 const glob = require('glob');
 const fs = require('fs-extra');
@@ -16,7 +19,7 @@ if (typeof module === 'object') {
 process.env.LIBREJS_TEST_MANUAL = true;
 const { libreJSTest } = require('../test.js');
 
-const SRC_DIR = _join(__dirname, './');
+const SRC_DIR = _join(__dirname, './webextension');
 // const SRC_DIR = _join(__dirname, './webextension');
 const BUILD_DIR = _join(__dirname, './build_temp');
 const XPI_PATH = _join(__dirname, './librejs.xpi');
@@ -28,11 +31,11 @@ console.log({
 });
 
 // Initialize watcher for JS/TS files
-// const watcher = watch(SRC_DIR + '/**/*', {
-//   ignored: /(^|[\/\\])\../, // ignore dotfiles
-//   persistent: true,
-//   ignoreInitial: true,
-// });
+const watcher = watch(SRC_DIR + '/**/*', {
+  ignored: /(^|[\/\\])\../, // ignore dotfiles
+  persistent: true,
+  ignoreInitial: true,
+});
 
 /**
  * Builds webextension dist folder and installer file.
@@ -59,7 +62,7 @@ async function loadJasmine(event, path) {
 /**
  * Cleanup old build
  */
-async function cleanup(_event, _path) {
+async function cleanupOldBuild(_event, _path) {
   try {
     await fs.removeSync(BUILD_DIR);
     await fs.removeSync(XPI_PATH);
@@ -72,23 +75,7 @@ async function cleanup(_event, _path) {
  * Copy sources to build folder
  */
 async function copySources() {
-  await fs.copy(_join(SRC_DIR, 'test'), _join(BUILD_DIR, 'test'));
-  await fs.copy(_join(SRC_DIR, 'icons'), _join(BUILD_DIR, 'icons'));
-  await fs.copy(_join(SRC_DIR, 'content'), _join(BUILD_DIR, 'content'));
-  await fs.copy(_join(SRC_DIR, 'bg'), _join(BUILD_DIR, 'bg'));
-  await fs.copy(_join(SRC_DIR, 'common'), _join(BUILD_DIR, 'common'));
-  await fs.copy(_join(SRC_DIR, 'hash_script'), _join(BUILD_DIR, 'hash_script'));
-  await fs.copy(_join(SRC_DIR, 'manifest.json'), _join(BUILD_DIR, 'manifest.json'));
-  glob.sync(SRC_DIR + '*.@(ts|js)').forEach((path) => {
-    const ignore = isInNodeModules(path);
-    const file = _path.relative(__dirname, path);
-    if (!ignore) {
-      // fs.removeSync(path);
-      fs.copy(_join(path), _join(BUILD_DIR, file));
-    } else {
-      // Ignored sourcefiles
-    }
-  });
+  await fs.copy(SRC_DIR, BUILD_DIR);
 }
 
 /**
@@ -127,7 +114,7 @@ async function removeTsSources(buildDir = BUILD_DIR) {
  */
 async function main(event, path, extensionRunner) {
   // Remove previous build
-  await cleanup(event, path).catch(console.error);
+  await cleanupOldBuild(event, path).catch(console.error);
 
   // Try to load jasmine lib if not exist
   await loadJasmine().catch(console.error);
@@ -147,17 +134,20 @@ async function main(event, path, extensionRunner) {
   // Remove TS sources from build folders
   await packageXPI();
 
+  // const otherSourcesPattern
+  // TODO: cleanup unnececary files
+
   // Run headless tests on installer
   // TODO: try to use web-ext to connect to started browser instead of starting headless one
   let testResults;
-  if ([true, 1, '1'].includes(process.env.RUN_TESTS_ON_BUILD)) {
+  if (TESTS_ENABLED) {
     testResults = await libreJSTest();
   }
 
   // Reload extensions after success build, if extensionRunner is provided
-  // if (!testResults.error && extensionRunner) {
-  //   await extensionRunner.reloadAllExtensions();
-  // }
+  if (!testResults.error && extensionRunner) {
+    await extensionRunner.reloadAllExtensions();
+  }
 }
 
 /**
@@ -205,11 +195,14 @@ function isInNodeModules(file, basedir = __dirname) {
 async function start() {
   await main();
 
-  const extensionRunner = await webExt.cmd.run({ sourceDir: BUILD_DIR, noReload: true }, { shouldExitProgram: false });
-
-  // watcher.on('all', (event, path) => debounce(main, 500)(event, path /* extensionRunner */));
-
-  console.log('Started ExtensionRunners: ' + extensionRunner.extensionRunners.length);
+  if (WATCH_ENABLED) {
+    const extensionRunner = await webExt.cmd.run(
+      { sourceDir: BUILD_DIR, noReload: true },
+      { shouldExitProgram: false },
+    );
+    watcher.on('all', (event, path) => debounce(main, 500)(event, path, extensionRunner));
+    console.log('Started ExtensionRunners: ' + extensionRunner.extensionRunners.length);
+  }
 }
 
 // export { main, compileTs, buildWebExt, start };

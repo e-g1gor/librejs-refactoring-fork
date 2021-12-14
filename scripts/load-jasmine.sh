@@ -1,5 +1,5 @@
 # prepare / update testing environment if needed
-SRC_DIR=${SRC_DIR:-'.'}
+SRC_DIR=${SRC_DIR:-'./webextension'}
 echo SRC_DIR=$SRC_DIR
 
 JASMINE_VER=3.2.1
