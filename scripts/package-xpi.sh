@@ -15,7 +15,7 @@ npx browserify "./$SRC_DIR/main_background.js" -o "./$BUILD_DIR/bundle.js"
 cd "./$BUILD_DIR"
 zip -r librejs.zip *
 # remove old file
-rm ../librejs.xpi || true
+# rm ../librejs.xpi || echo "No need to remove old *.xpi"
 # move new zip file
 mv librejs.zip ../
 

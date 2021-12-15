@@ -1,7 +1,7 @@
 module.exports = {
   root: true,
   parserOptions: {
-    ecmaVersion: 2017,
+    ecmaVersion: 2020,
     sourceType: 'module',
   },
   extends: ['plugin:prettier/recommended'],
@@ -11,7 +11,14 @@ module.exports = {
     jest: true,
     browser: false,
   },
-  ignorePatterns: ['.eslintrc.*', '/build', '/build_temp', './compile_temp'],
+  ignorePatterns: [
+    '.eslintrc.*',
+    '/build',
+    '/build_temp',
+    './compile_temp',
+    'webextension/hash_script/output.js',
+    'webextension/test/lib',
+  ],
   rules: {
     'id-match': ['error', '^[a-zA-Z_$]*[a-zA-Z_$0-9]*$'],
     'require-await': 'warn',

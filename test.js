@@ -28,6 +28,8 @@
 const { Builder, By } = require('selenium-webdriver');
 const { Options } = require('selenium-webdriver/firefox.js');
 
+const isImported = [1, '1', true, null, undefined, ''].includes(process.env.LIBREJS_TEST_MANUAL);
+
 /**
  * This function perform headless browser tests on built `librejs.xpi` extension
  * @returns Test results or error info in case of exception
@@ -66,21 +68,21 @@ async function libreJSTest() {
       );
 
       // Print summary
-      console.log(SUMMARY);
+      if (isImported) console.log(SUMMARY);
       // Print failed tests
-      DETAILS.forEach((str) => console.error(str));
+      if (isImported) DETAILS.forEach((str) => console.error(str));
 
       // That'll not prevent executing `finally` block, it always executes.
       return { SUMMARY, DETAILS };
     } catch (error) {
-      console.error(error);
+      if (isImported) console.error(error);
       // That'll not prevent executing `finally` block, it always executes.
       throw { error };
     } finally {
       driver.quit();
     }
   } catch (error) {
-    console.error(error);
+    if (isImported) console.error(error);
     throw error;
   }
 }
@@ -88,6 +90,6 @@ async function libreJSTest() {
 module.exports = { libreJSTest };
 
 // Perform tests, if it was not disabled by `LIBREJS_TEST_MANUAL` env variable
-if ([1, '1', true, null, undefined, ''].includes(process.env.LIBREJS_TEST_MANUAL)) {
+if (isImported) {
   void libreJSTest();
 }
