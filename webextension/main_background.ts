@@ -20,13 +20,24 @@
  * along with GNU LibreJS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var acorn = require('acorn');
-var acornLoose = require('acorn-loose');
-var legacy_license_lib = require('./legacy_license_check.js');
-var { ResponseProcessor } = require('./bg/ResponseProcessor');
-var { Storage, ListStore, hash } = require('./common/Storage');
-var { ListManager } = require('./bg/ListManager');
-var { ExternalLicenses } = require('./bg/ExternalLicenses');
+const acorn = require('acorn');
+const acornLoose = require('acorn-loose');
+const legacy_license_lib = require('./legacy_license_check.js');
+const { ResponseProcessor } = require('./bg/ResponseProcessor');
+const { Storage: StorageWrapper, ListStore, hash } = require('./common/Storage');
+const { ListManager } = require('./bg/ListManager');
+const { ExternalLicenses } = require('./bg/ExternalLicenses');
+
+const whitelist = new ListStore('pref_whitelist', StorageWrapper.CSV);
+const blacklist = new ListStore('pref_blacklist', StorageWrapper.CSV);
+const listManager = new ListManager(
+  whitelist,
+  blacklist,
+  // built-in whitelist of script hashes, e.g. jQuery
+  Object.values<any>(require('./hash_script/whitelist').whitelist)
+    .reduce((a, b) => a.concat(b)) // as a flat array
+    .map((script: { hash: any }) => script.hash),
+);
 
 console.log('main_background.js');
 /**
@@ -35,12 +46,12 @@ console.log('main_background.js');
  *	Also, it controls whether or not this part of the code logs to the console.
  *
  */
-var DEBUG = false; // debug the JS evaluation
-var PRINT_DEBUG = false; // Everything else
-var time = Date.now();
+const DEBUG = false; // debug the JS evaluation
+const PRINT_DEBUG = false; // Everything else
+const time = Date.now();
 
-function dbg_print(a, b) {
-  if (PRINT_DEBUG == true) {
+function dbg_print(a: any, b?: any) {
+  if (PRINT_DEBUG) {
     console.log('Time spent so far: ' + (Date.now() - time) / 1000 + ' seconds');
     if (b === undefined) {
       console.log(a);
@@ -64,10 +75,10 @@ function dbg_print(a, b) {
 	- "// @license [magnet link] [identifier]" then "// @license-end" (may also use /* comments)
 	- Automatic whitelist: (http://bzr.savannah.gnu.org/lh/librejs/dev/annotate/head:/data/script_libraries/script-libraries.json_
 */
-var licenses = require('./licenses.json').licenses;
+const licenses = require('./licenses.json').licenses;
 
 // These are objects that it will search for in an initial regex pass over non-free scripts.
-var reserved_objects = [
+const reserved_objects = [
   //"document",
   //"window",
   'fetch',
@@ -78,7 +89,7 @@ var reserved_objects = [
 ];
 
 // Generates JSON key for local storage
-function get_storage_key(script_name, src_hash) {
+function get_storage_key(script_name: any, src_hash: any) {
   return script_name;
 }
 
@@ -94,7 +105,7 @@ function get_storage_key(script_name, src_hash) {
  *	with its code to update accordingly
  *
  */
-function options_listener(changes, area) {
+function options_listener(changes: any, area: string) {
   // The cache must be flushed when settings are changed
   // TODO: See if this can be minimized
   function flushed() {
@@ -104,22 +115,22 @@ function options_listener(changes, area) {
 
   dbg_print('Items updated in area' + area + ': ');
 
-  var changedItems = Object.keys(changes);
-  var changed_items = '';
-  for (var i = 0; i < changedItems.length; i++) {
-    var item = changedItems[i];
+  const changedItems = Object.keys(changes);
+  let changed_items = '';
+  for (let i = 0; i < changedItems.length; i++) {
+    const item = changedItems[i];
     changed_items += item + ',';
   }
   dbg_print(changed_items);
 }
 
-var activeMessagePorts = {};
-var activityReports = {};
-async function createReport(initializer) {
+const activeMessagePorts = {};
+const activityReports = {};
+async function createReport(initializer: any) {
   if (!(initializer && (initializer.url || initializer.tabId))) {
     throw new Error('createReport() needs an URL or a tabId at least');
   }
-  let template = {
+  let template: any = {
     accepted: [],
     blocked: [],
     blacklisted: [],
@@ -127,11 +138,11 @@ async function createReport(initializer) {
     unknown: [],
   };
   template = Object.assign(template, initializer);
-  let [url] = (template.url || (await browser.tabs.get(initializer.tabId)).url).split('#');
+  const [url] = (template.url || (await browser.tabs.get(initializer.tabId)).url).split('#');
   template.url = url;
   template.site = ListStore.siteItem(url);
   template.siteStatus = listManager.getStatus(template.site);
-  let list = { whitelisted: whitelist, blacklisted: blacklist }[template.siteStatus];
+  const list = { whitelisted: whitelist, blacklisted: blacklist }[template.siteStatus];
   if (list) {
     template.listedSite = ListManager.siteMatch(template.site, list);
   }
@@ -143,9 +154,9 @@ async function createReport(initializer) {
  *	by opening a new tab with whatever HTML is in the popup
  *	at the moment.
  */
-async function openReportInTab(data) {
-  let popupURL = await browser.browserAction.getPopup({});
-  let tab = await browser.tabs.create({ url: `${popupURL}#fromTab=${data.tabId}` });
+async function openReportInTab(data: { tabId: number }) {
+  const popupURL = await browser.browserAction.getPopup({});
+  const tab = await browser.tabs.create({ url: `${popupURL}#fromTab=${data.tabId}` });
   activityReports[tab.id] = await createReport(data);
 }
 
@@ -155,7 +166,7 @@ async function openReportInTab(data) {
  *
  */
 function debug_delete_local() {
-  browser.storage.local.clear();
+  void browser.storage.local.clear();
   dbg_print('Local storage cleared');
 }
 
@@ -165,15 +176,15 @@ function debug_delete_local() {
  *
  */
 function debug_print_local() {
-  function storage_got(items) {
+  function storage_got(items: any) {
     console.log('%c Local storage: ', 'color: red;');
-    for (var i in items) {
+    for (const i in items) {
       console.log('%c ' + i + ' = ' + items[i], 'color: blue;');
     }
   }
   console.log("%c Variable 'activityReports': ", 'color: red;');
   console.log(activityReports);
-  browser.storage.local.get(storage_got);
+  void browser.storage.local.get(storage_got as any);
 }
 
 /**
@@ -191,20 +202,20 @@ function debug_print_local() {
  *	Make sure it will use the right URL when refering to a certain script.
  *
  */
-async function updateReport(tabId, oldReport, updateUI = false) {
-  let { url } = oldReport;
-  let newReport = await createReport({ url, tabId });
-  for (let property of Object.keys(oldReport)) {
-    let entries = oldReport[property];
+async function updateReport(tabId: number, oldReport: any, updateUI = false) {
+  const { url } = oldReport;
+  const newReport = await createReport({ url, tabId });
+  for (const property of Object.keys(oldReport)) {
+    const entries = oldReport[property];
     if (!Array.isArray(entries)) continue;
-    let defValue = property === 'accepted' || property === 'blocked' ? property : 'unknown';
-    for (let script of entries) {
-      let status = listManager.getStatus(script[0], defValue);
+    const defValue = property === 'accepted' || property === 'blocked' ? property : 'unknown';
+    for (const script of entries) {
+      const status = listManager.getStatus(script[0], defValue);
       if (Array.isArray(newReport[status])) newReport[status].push(script);
     }
   }
   activityReports[tabId] = newReport;
-  if (browser.sessions) browser.sessions.setTabValue(tabId, url, newReport);
+  if (browser.sessions) await browser.sessions.setTabValue(tabId, url, newReport);
   dbg_print(newReport);
   if (updateUI && activeMessagePorts[tabId]) {
     dbg_print(`[TABID: ${tabId}] Sending script blocking report directly to browser action.`);
@@ -232,10 +243,10 @@ async function updateReport(tabId, oldReport, updateUI = false) {
  *	Make sure it will use the right URL when refering to a certain script.
  *
  */
-async function addReportEntry(tabId, scriptHashOrUrl, action) {
+async function addReportEntry(tabId: number, scriptHashOrUrl: any, action: any) {
   let report = activityReports[tabId];
   if (!report) report = activityReports[tabId] = await createReport({ tabId });
-  let type, actionValue;
+  let type: any, actionValue: any;
   for (type of ['accepted', 'blocked', 'whitelisted', 'blacklisted']) {
     if (type in action) {
       actionValue = action[type];
@@ -248,18 +259,18 @@ async function addReportEntry(tabId, scriptHashOrUrl, action) {
   }
 
   // Search unused data for the given entry
-  function isNew(entries, item) {
-    for (let e of entries) {
+  function isNew(entries: any, item: any) {
+    for (const e of entries) {
       if (e[0] === item) return false;
     }
     return true;
   }
 
-  let entryType;
-  let scriptName = actionValue[0];
+  let entryType: string;
+  const scriptName = actionValue[0];
   try {
     entryType = listManager.getStatus(scriptName, type);
-    let entries = report[entryType];
+    const entries = report[entryType];
     if (isNew(entries, scriptName)) {
       dbg_print(activityReports);
       dbg_print(activityReports[tabId]);
@@ -277,13 +288,13 @@ async function addReportEntry(tabId, scriptHashOrUrl, action) {
     } catch (e) {}
   }
 
-  if (browser.sessions) browser.sessions.setTabValue(tabId, report.url, report);
+  if (browser.sessions) await browser.sessions.setTabValue(tabId, report.url, report);
   updateBadge(tabId, report);
   return entryType;
 }
 
-function get_domain(url) {
-  var domain = url.replace('http://', '').replace('https://', '').split(/[/?#]/)[0];
+function get_domain(url: string) {
+  let domain = url.replace('http://', '').replace('https://', '').split(/[/?#]/)[0];
   if (url.indexOf('http://') == 0) {
     domain = 'http://' + domain;
   } else if (url.indexOf('https://') == 0) {
@@ -299,8 +310,8 @@ function get_domain(url) {
  *	This is the callback where the content scripts of the browser action will contact the background script.
  *
  */
-var portFromCS;
-async function connected(p) {
+let portFromCS: any;
+async function connected(p: any) {
   if (p.name === 'contact_finder') {
     // style the contact finder panel
     await browser.tabs.insertCSS(p.sender.tab.id, {
@@ -314,11 +325,11 @@ async function connected(p) {
     p.postMessage(await browser.storage.local.get(['prefs_subject', 'prefs_body']));
     return;
   }
-  p.onMessage.addListener(async function (m) {
-    var update = false;
-    var contact_finder = false;
+  p.onMessage.addListener(async function (m: any) {
+    let update = false;
+    let contact_finder = false;
 
-    for (let action of ['whitelist', 'blacklist', 'forget']) {
+    for (const action of ['whitelist', 'blacklist', 'forget']) {
       if (m[action]) {
         let [key] = m[action];
         if (m.site) {
@@ -332,7 +343,7 @@ async function connected(p) {
     }
 
     if (m.report_tab) {
-      openReportInTab(m.report_tab);
+      await openReportInTab(m.report_tab);
     }
     // a debug feature
     if (m['printlocalstorage'] !== undefined) {
@@ -350,27 +361,27 @@ async function connected(p) {
       debug_delete_local();
     }
 
-    let tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
 
     if (contact_finder) {
-      let tab = tabs.pop();
+      const tab = tabs.pop();
       dbg_print(`[TABID:${tab.id}] Injecting contact finder`);
       //inject_contact_finder(tabs[0]["id"]);
     }
     if (update || (m.update && activityReports[m.tabId])) {
-      let tabId = 'tabId' in m ? m.tabId : tabs.pop().id;
+      const tabId = 'tabId' in m ? m.tabId : tabs.pop().id;
       dbg_print(`%c updating tab ${tabId}`, 'color: red;');
       activeMessagePorts[tabId] = p;
       await updateReport(tabId, activityReports[tabId], true);
     } else {
-      for (let tab of tabs) {
+      for (const tab of tabs) {
         if (activityReports[tab.id]) {
           // If we have some data stored here for this tabID, send it
           dbg_print(`[TABID: ${tab.id}] Sending stored data associated with browser action'`);
           p.postMessage({ show_info: activityReports[tab.id] });
         } else {
           // create a new entry
-          let report = (activityReports[tab.id] = await createReport({ url: tab.url, tabId: tab.id }));
+          const report = (activityReports[tab.id] = await createReport({ url: tab.url, tabId: tab.id }));
           p.postMessage({ show_info: report });
           dbg_print(`[TABID: ${tab.id}] No data found, creating a new entry for this window.`);
         }
@@ -385,7 +396,7 @@ async function connected(p) {
  *	Delete the info we are storing about this tab if there is any.
  *
  */
-function delete_removed_tab_info(tab_id, remove_info) {
+function delete_removed_tab_info(tab_id: string, remove_info: any) {
   dbg_print('[TABID:' + tab_id + ']' + 'Deleting stored info about closed tab');
   if (activityReports[tab_id] !== undefined) {
     delete activityReports[tab_id];
@@ -404,13 +415,13 @@ function delete_removed_tab_info(tab_id, remove_info) {
  *
  */
 
-async function onTabUpdated(tabId, changedInfo, tab) {
-  let [url] = tab.url.split('#');
-  let report = activityReports[tabId];
+async function onTabUpdated(tabId: number, changedInfo: any, tab: browser.tabs.Tab) {
+  const [url] = tab.url.split('#');
+  const report = activityReports[tabId];
   if (!(report && report.url === url)) {
-    let cache = (browser.sessions && (await browser.sessions.getTabValue(tabId, url))) || null;
+    const cache = (browser.sessions && (await browser.sessions.getTabValue(tabId, url))) || null;
     // on session restore tabIds may change
-    if (cache && cache.tabId !== tabId) cache.tabId = tabId;
+    if (cache && (cache as any).tabId !== tabId) (cache as any).tabId = tabId;
     updateBadge(tabId, (activityReports[tabId] = cache));
   }
 }
@@ -421,23 +432,23 @@ async function onTabActivated({ tabId }) {
 
 /* *********************************************************************************************** */
 
-var fname_data = require('./fname_data.json').fname_data;
+const fname_data = require('./fname_data.json').fname_data;
 
 //************************this part can be tested in the HTML file index.html's script test.js****************************
 
-function full_evaluate(script) {
-  var res = true;
+function full_evaluate(script: string) {
+  const res = true;
   if (script === undefined || script == '') {
     return [true, 'Harmless null script'];
   }
 
-  var ast = acornLoose.parse(script).body[0];
+  const ast = acornLoose.parse(script).body[0];
 
-  var flag = false;
-  var amtloops = 0;
+  const flag = false;
+  let amtloops = 0;
 
-  var loopkeys = { for: true, if: true, while: true, switch: true };
-  var operators = {
+  const loopkeys = { for: true, if: true, while: true, switch: true };
+  const operators = {
     '||': true,
     '&&': true,
     '=': true,
@@ -448,14 +459,16 @@ function full_evaluate(script) {
     '-=': true,
     '*': true,
   };
+  let tokens;
+  let toke;
   try {
-    var tokens = acorn.tokenizer(script);
+    tokens = acorn.tokenizer(script);
   } catch (e) {
     console.warn('Tokenizer could not be initiated (probably invalid code)');
     return [false, 'Tokenizer could not be initiated (probably invalid code)'];
   }
   try {
-    var toke = tokens.getToken();
+    toke = tokens.getToken();
   } catch (e) {
     console.log(script);
     console.log(e);
@@ -466,8 +479,8 @@ function full_evaluate(script) {
   /**
    * Given the end of an identifer token, it tests for bracket suffix notation
    */
-  function being_called(end) {
-    var i = 0;
+  function being_called(end: number) {
+    let i = 0;
     while (script.charAt(end + i).match(/\s/g) !== null) {
       i++;
       if (i >= script.length - 1) {
@@ -480,8 +493,8 @@ function full_evaluate(script) {
   /**
    * Given the end of an identifer token, it tests for parentheses
    */
-  function is_bsn(end) {
-    var i = 0;
+  function is_bsn(end: number) {
+    let i = 0;
     while (script.charAt(end + i).match(/\s/g) !== null) {
       i++;
       if (i >= script.length - 1) {
@@ -490,8 +503,8 @@ function full_evaluate(script) {
     }
     return script.charAt(end + i) == '[';
   }
-  var error_count = 0;
-  var defines_functions = false;
+  const error_count = 0;
+  let defines_functions = false;
   while (toke !== undefined && toke.type != acorn.tokTypes.eof) {
     if (toke.type.keyword !== undefined) {
       //dbg_print("Keyword:");
@@ -517,7 +530,7 @@ function full_evaluate(script) {
       // It's just an operator. Javascript doesn't have operator overloading so it must be some
       // kind of primitive (I.e. a number)
     } else if (toke.value !== undefined) {
-      var status = fname_data[toke.value];
+      const status = fname_data[toke.value];
       if (status === true) {
         // is the identifier banned?
         dbg_print("%c NONTRIVIAL: nontrivial token: '" + toke.value + "'", 'color:red');
@@ -573,32 +586,32 @@ function full_evaluate(script) {
 *	It returns an array of [flag (boolean, false if "bad"), reason (string, human readable report)]
 *
 */
-function evaluate(script, name) {
-  function reserved_object_regex(object) {
-    var arith_operators = '\\+\\-\\*\\/\\%\\=';
-    var scope_chars = '{}][(),';
-    var trailing_chars = 's*' + '(.[';
+function evaluate(script: string, name: string) {
+  function reserved_object_regex(object: string) {
+    const arith_operators = '\\+\\-\\*\\/\\%\\=';
+    const scope_chars = '{}][(),';
+    const trailing_chars = 's*' + '(.[';
     return new RegExp(
       '(?:[^\\w\\d]|^|(?:' + arith_operators + '))' + object + '(?:\\s*?(?:[\\;\\,\\.\\(\\[])\\s*?)',
       'g',
     );
   }
   reserved_object_regex('window');
-  var all_strings = new RegExp('".*?"' + "|'.*?'", 'gm');
-  var ml_comment = /\/\*([\s\S]+?)\*\//g;
-  var il_comment = /\/\/.+/gm;
-  var bracket_pairs = /\[.+?\]/g;
-  var temp = script.replace(/'.+?'+/gm, "'string'");
+  const all_strings = new RegExp('".*?"' + "|'.*?'", 'gm');
+  const ml_comment = /\/\*([\s\S]+?)\*\//g;
+  const il_comment = /\/\/.+/gm;
+  const bracket_pairs = /\[.+?\]/g;
+  let temp = script.replace(/'.+?'+/gm, "'string'");
   temp = temp.replace(/".+?"+/gm, '"string"');
   temp = temp.replace(ml_comment, '');
   temp = temp.replace(il_comment, '');
   dbg_print('%c ------evaluation results for ' + name + '------', 'color:white');
   dbg_print('Script accesses reserved objects?');
-  var flag = true;
-  var reason = '';
+  let flag = true;
+  let reason = '';
   // 	This is where individual "passes" are made over the code
-  for (var i = 0; i < reserved_objects.length; i++) {
-    var res = reserved_object_regex(reserved_objects[i]).exec(temp);
+  for (let i = 0; i < reserved_objects.length; i++) {
+    const res = reserved_object_regex(reserved_objects[i]).exec(temp);
     if (res != null) {
       dbg_print('%c fail', 'color:red;');
       flag = false;
@@ -614,14 +627,14 @@ function evaluate(script, name) {
   return full_evaluate(script);
 }
 
-function validateLicense(matches) {
+function validateLicense(matches: string | any[]) {
   if (!(Array.isArray(matches) && matches.length >= 4)) {
     return [false, 'Malformed or unrecognized license tag.'];
   }
 
-  let [all, tag, first, second] = matches;
+  const [all, tag, first, second] = matches;
 
-  for (let key in licenses) {
+  for (const key in licenses) {
     // Match by id on first or second parameter, ignoring case
     if (key.toLowerCase() === first.toLowerCase() || key.toLowerCase() === second.toLowerCase()) {
       return [true, `Recognized license: "${licenses[key]['Name']}" `];
@@ -649,8 +662,8 @@ function validateLicense(matches) {
  *		reason text
  *	]
  */
-function license_read(scriptSrc, name, external = false) {
-  let license = legacy_license_lib.check(scriptSrc);
+function license_read(scriptSrc: string, name: any, external = false) {
+  const license = legacy_license_lib.check(scriptSrc);
   if (license) {
     return [true, scriptSrc, `Licensed under: ${license}`];
   }
@@ -664,11 +677,11 @@ function license_read(scriptSrc, name, external = false) {
   let partsDenied = false;
   let partsAccepted = false;
 
-  function checkTriviality(s) {
+  function checkTriviality(s: string) {
     if (!s.trim()) {
       return true; // empty, ignore it
     }
-    let [trivial, message] = external ? [false, 'External script with no known license'] : evaluate(s, name);
+    const [trivial, message] = external ? [false, 'External script with no known license'] : evaluate(s, name);
     if (trivial) {
       partsAccepted = true;
       editedSrc += s;
@@ -682,14 +695,14 @@ function license_read(scriptSrc, name, external = false) {
   }
 
   while (uneditedSrc) {
-    let openingMatch = /\/[\/\*]\s*?(@license)\s+(\S+)\s+(\S+)\s*$/im.exec(uneditedSrc);
+    const openingMatch = /\/[\/\*]\s*?(@license)\s+(\S+)\s+(\S+)\s*$/im.exec(uneditedSrc);
     if (!openingMatch) {
       // no license found, check for triviality
       checkTriviality(uneditedSrc);
       break;
     }
 
-    let openingIndex = openingMatch.index;
+    const openingIndex = openingMatch.index;
     if (openingIndex) {
       // let's check the triviality of the code before the license tag, if any
       checkTriviality(uneditedSrc.substring(0, openingIndex));
@@ -697,19 +710,19 @@ function license_read(scriptSrc, name, external = false) {
     // let's check the actual license
     uneditedSrc = uneditedSrc.substring(openingIndex);
 
-    let closureMatch = /\/([*/])\s*@license-end\b[^*/\n]*/i.exec(uneditedSrc);
+    const closureMatch = /\/([*/])\s*@license-end\b[^*/\n]*/i.exec(uneditedSrc);
     if (!closureMatch) {
-      let msg = 'ERROR: @license with no @license-end';
+      const msg = 'ERROR: @license with no @license-end';
       return [false, `\n/*\n ${msg} \n*/\n`, msg];
     }
 
     let closureEndIndex = closureMatch.index + closureMatch[0].length;
-    let commentEndOffset = uneditedSrc.substring(closureEndIndex).indexOf(closureMatch[1] === '*' ? '*/' : '\n');
+    const commentEndOffset = uneditedSrc.substring(closureEndIndex).indexOf(closureMatch[1] === '*' ? '*/' : '\n');
     if (commentEndOffset !== -1) {
       closureEndIndex += commentEndOffset;
     }
 
-    let [licenseOK, message] = validateLicense(openingMatch);
+    const [licenseOK, message] = validateLicense(openingMatch);
     if (licenseOK) {
       editedSrc += uneditedSrc.substr(0, closureEndIndex);
       partsAccepted = true;
@@ -740,18 +753,18 @@ function license_read(scriptSrc, name, external = false) {
  *	Asynchronous function, returns the final edited script as a string,
  * or an array containing it and the index, if the latter !== -1
  */
-async function get_script(response, url, tabId = -1, whitelisted = false, index = -1) {
-  function result(scriptSource) {
+async function get_script(response: string, url: string, tabId = -1, whitelisted = false, index = -1): Promise<any> {
+  function result(scriptSource: string | any): any {
     return index === -1 ? scriptSource : [scriptSource, index];
   }
 
-  let scriptName = url.split('/').pop();
+  const scriptName = url.split('/').pop();
   if (whitelisted) {
     if (tabId !== -1) {
-      let site = ListManager.siteMatch(url, whitelist);
+      const site = ListManager.siteMatch(url, whitelist);
       // Accept without reading script, it was explicitly whitelisted
-      let reason = site ? `All ${site} whitelisted by user` : 'Address whitelisted by user';
-      addReportEntry(tabId, url, { whitelisted: [site || url, reason], url });
+      const reason = site ? `All ${site} whitelisted by user` : 'Address whitelisted by user';
+      await addReportEntry(tabId, url, { whitelisted: [site || url, reason], url });
     }
     if (response.startsWith('javascript:')) return result(response);
     else return result(`/* LibreJS: script whitelisted by user preference. */\n${response}`);
@@ -763,11 +776,11 @@ async function get_script(response, url, tabId = -1, whitelisted = false, index 
     return result(verdict ? response : editedSource);
   }
 
-  let sourceHash = hash(response);
-  let domain = get_domain(url);
-  let report = activityReports[tabId] || (activityReports[tabId] = await createReport({ tabId }));
+  const sourceHash = hash(response);
+  const domain = get_domain(url);
+  const report = activityReports[tabId] || (activityReports[tabId] = await createReport({ tabId }));
   updateBadge(tabId, report, !verdict);
-  let category = await addReportEntry(tabId, sourceHash, {
+  const category = await addReportEntry(tabId, sourceHash, {
     url: domain,
     [verdict ? 'accepted' : 'blocked']: [url, reason],
   });
@@ -782,7 +795,7 @@ async function get_script(response, url, tabId = -1, whitelisted = false, index 
         response.startsWith('javascript:') ? response : `/* LibreJS: script ${category} by user. */\n${response}`,
       );
     default:
-      let scriptSource = verdict ? response : editedSource;
+      const scriptSource = verdict ? response : editedSource;
       return result(
         response.startsWith('javascript:')
           ? verdict
@@ -793,11 +806,11 @@ async function get_script(response, url, tabId = -1, whitelisted = false, index 
   }
 }
 
-function updateBadge(tabId, report = null, forceRed = false) {
-  let blockedCount = report ? report.blocked.length + report.blacklisted.length : 0;
-  let [text, color] =
+function updateBadge(tabId: number, report = null, forceRed = false) {
+  const blockedCount = report ? report.blocked.length + report.blacklisted.length : 0;
+  const [text, color] =
     blockedCount > 0 || forceRed ? [(blockedCount && blockedCount.toString()) || '!', 'red'] : ['✓', 'green'];
-  let { browserAction } = browser;
+  const { browserAction } = browser;
   if ('setBadgeText' in browserAction) {
     browserAction.setBadgeText({ text, tabId });
     browserAction.setBadgeBackgroundColor({ color, tabId });
@@ -807,9 +820,9 @@ function updateBadge(tabId, report = null, forceRed = false) {
   }
 }
 
-function blockGoogleAnalytics(request) {
-  let { url } = request;
-  let res = {};
+function blockGoogleAnalytics(request: { url: any }) {
+  const { url } = request;
+  const res: any = {};
   if (
     url === 'https://www.google-analytics.com/analytics.js' ||
     /^https:\/\/www\.google\.com\/analytics\/[^#]/.test(url)
@@ -819,12 +832,12 @@ function blockGoogleAnalytics(request) {
   return res;
 }
 
-async function blockBlacklistedScripts(request) {
+async function blockBlacklistedScripts(request: any) {
   let { url, tabId, documentUrl } = request;
   url = ListStore.urlItem(url);
-  let status = listManager.getStatus(url);
+  const status = listManager.getStatus(url);
   if (status !== 'blacklisted') return {};
-  let blacklistedSite = ListManager.siteMatch(url, blacklist);
+  const blacklistedSite = ListManager.siteMatch(url, blacklist);
   await addReportEntry(tabId, url, {
     url: documentUrl,
     blacklisted: [url, /\*/.test(blacklistedSite) ? `User blacklisted ${blacklistedSite}` : 'Blacklisted by user'],
@@ -838,21 +851,22 @@ async function blockBlacklistedScripts(request) {
  * and external script inclusions in search of non-free JavaScript
  */
 
+// eslint-disable-next-line no-var
 var ResponseHandler = {
   /**
    *	Enforce white/black lists for url/site early (hashes will be handled later)
    */
-  async pre(response) {
-    let { request } = response;
+  async pre(response: any) {
+    const { request } = response;
     let { url, type, tabId, frameId, documentUrl } = request;
 
-    let fullUrl = url;
+    const fullUrl = url;
     url = ListStore.urlItem(url);
-    let site = ListStore.siteItem(url);
+    const site = ListStore.siteItem(url);
 
-    let blacklistedSite = ListManager.siteMatch(site, blacklist);
-    let blacklisted = blacklistedSite || blacklist.contains(url);
-    let topUrl = (type === 'sub_frame' && request.frameAncestors && request.frameAncestors.pop()) || documentUrl;
+    const blacklistedSite = ListManager.siteMatch(site, blacklist);
+    const blacklisted = blacklistedSite || blacklist.contains(url);
+    const topUrl = (type === 'sub_frame' && request.frameAncestors && request.frameAncestors.pop()) || documentUrl;
 
     if (blacklisted) {
       if (type === 'script') {
@@ -863,7 +877,7 @@ var ResponseHandler = {
         // we handle the page change here too, since we won't call edit_html()
         activityReports[tabId] = await createReport({ url: fullUrl, tabId });
         // Go on without parsing the page: it was explicitly blacklisted
-        let reason = blacklistedSite ? `All ${blacklistedSite} blacklisted by user` : 'Address blacklisted by user';
+        const reason = blacklistedSite ? `All ${blacklistedSite} blacklisted by user` : 'Address blacklisted by user';
         await addReportEntry(tabId, url, { blacklisted: [blacklistedSite || url, reason], url: fullUrl });
       }
       // use CSP to restrict JavaScript execution in the page
@@ -873,21 +887,21 @@ var ResponseHandler = {
       });
       return { responseHeaders: request.responseHeaders }; // let's skip the inline script parsing, since we block by CSP
     } else {
-      let whitelistedSite = ListManager.siteMatch(site, whitelist);
-      let whitelisted = (response.whitelisted = whitelistedSite || whitelist.contains(url));
+      const whitelistedSite = ListManager.siteMatch(site, whitelist);
+      const whitelisted = (response.whitelisted = whitelistedSite || whitelist.contains(url));
       if (type === 'script') {
         if (whitelisted) {
           // accept the script and stop processing
-          addReportEntry(tabId, url, {
+          await addReportEntry(tabId, url, {
             url: topUrl,
             whitelisted: [url, whitelistedSite ? `User whitelisted ${whitelistedSite}` : 'Whitelisted by user'],
           });
           return ResponseProcessor.ACCEPT;
         } else {
-          let scriptInfo = await ExternalLicenses.check({ url: fullUrl, tabId, frameId, documentUrl });
+          const scriptInfo = await ExternalLicenses.check({ url: fullUrl, tabId, frameId, documentUrl });
           if (scriptInfo) {
-            let verdict, ret;
-            let msg = scriptInfo.toString();
+            let verdict: string, ret: any;
+            const msg = scriptInfo.toString();
             if (scriptInfo.free) {
               verdict = 'accepted';
               ret = ResponseProcessor.ACCEPT;
@@ -895,7 +909,7 @@ var ResponseHandler = {
               verdict = 'blocked';
               ret = ResponseProcessor.REJECT;
             }
-            addReportEntry(tabId, url, { url, [verdict]: [url, msg] });
+            await addReportEntry(tabId, url, { url, [verdict]: [url, msg] });
             return ret;
           }
         }
@@ -909,9 +923,9 @@ var ResponseHandler = {
   /**
    *	Here we do the heavylifting, analyzing unknown scripts
    */
-  async post(response) {
-    let { type } = response.request;
-    let handle_it = type === 'script' ? handle_script : handle_html;
+  async post(response: any) {
+    const { type } = response.request;
+    const handle_it = type === 'script' ? handle_script : handle_html;
     return await handle_it(response, response.whitelisted);
   },
 };
@@ -919,11 +933,11 @@ var ResponseHandler = {
 /**
  * Here we handle external script requests
  */
-async function handle_script(response, whitelisted) {
-  let { text, request } = response;
+async function handle_script(response: any, whitelisted: boolean) {
+  const { text, request } = response;
   let { url, tabId, frameId } = request;
   url = ListStore.urlItem(url);
-  let edited = await get_script(text, url, tabId, whitelisted, -2);
+  const edited = await get_script(text, url, tabId, whitelisted, -2);
   return Array.isArray(edited) ? edited[0] : edited;
 }
 
@@ -931,10 +945,10 @@ async function handle_script(response, whitelisted) {
  * Serializes HTMLDocument objects including the root element and
  *	the DOCTYPE declaration
  */
-function doc2HTML(doc) {
+function doc2HTML(doc: Document) {
   let s = doc.documentElement.outerHTML;
   if (doc.doctype) {
-    let dt = doc.doctype;
+    const dt = doc.doctype;
     let sDoctype = `<!DOCTYPE ${dt.name || 'html'}`;
     if (dt.publicId) sDoctype += ` PUBLIC "${dt.publicId}"`;
     if (dt.systemId) sDoctype += ` "${dt.systemId}"`;
@@ -946,7 +960,7 @@ function doc2HTML(doc) {
 /**
  * Shortcut to create a correctly namespaced DOM HTML elements
  */
-function createHTMLElement(doc, name) {
+function createHTMLElement(doc: any, name: string) {
   return doc.createElementNS('http://www.w3.org/1999/xhtml', name);
 }
 
@@ -954,8 +968,8 @@ function createHTMLElement(doc, name) {
  * Replace any element with a span having the same content (useful to force
  * NOSCRIPT elements to visible the same way as NoScript and uBlock do)
  */
-function forceElement(doc, element) {
-  let replacement = createHTMLElement(doc, 'span');
+function forceElement(doc: any, element: Element) {
+  const replacement = createHTMLElement(doc, 'span');
   replacement.innerHTML = element.innerHTML;
   element.replaceWith(replacement);
   return replacement;
@@ -966,13 +980,13 @@ function forceElement(doc, element) {
  * <noscript> elements on pages where LibreJS disabled inline scripts (unless
  * they have the "data-librejs-nodisplay" attribute).
  */
-function forceNoscriptElements(doc) {
+function forceNoscriptElements(doc: Document) {
   let shown = 0;
   // inspired by NoScript's onScriptDisabled.js
-  for (let noscript of doc.querySelectorAll('noscript:not([data-librejs-nodisplay])')) {
-    let replacement = forceElement(doc, noscript);
+  for (const noscript of doc.querySelectorAll('noscript:not([data-librejs-nodisplay])')) {
+    const replacement = forceElement(doc, noscript);
     // emulate meta-refresh
-    let meta = replacement.querySelector('meta[http-equiv="refresh"]');
+    const meta = replacement.querySelector('meta[http-equiv="refresh"]');
     if (meta) {
       refresh = true;
       doc.head.appendChild(meta);
@@ -986,9 +1000,9 @@ function forceNoscriptElements(doc) {
  * <noscript> elements on pages where LibreJS disabled inline scripts (unless
  * they have the "data-librejs-nodisplay" attribute).
  */
-function showConditionalElements(doc) {
+function showConditionalElements(doc: Document) {
   let shown = 0;
-  for (let element of document.querySelectorAll('[data-librejs-display]')) {
+  for (const element of document.querySelectorAll('[data-librejs-display]')) {
     forceElement(doc, element);
     shown++;
   }
@@ -999,14 +1013,14 @@ function showConditionalElements(doc) {
  *	Tests to see if the intrinsic events on the page are free or not.
  *	returns true if they are, false if they're not
  */
-function read_metadata(meta_element) {
+function read_metadata(meta_element: HTMLElement) {
   if (meta_element === undefined || meta_element === null) {
     return;
   }
 
   console.log('metadata found');
 
-  var metadata = {};
+  let metadata: Record<any, any> = {};
 
   try {
     metadata = JSON.parse(meta_element.innerHTML);
@@ -1015,14 +1029,14 @@ function read_metadata(meta_element) {
     return false;
   }
 
-  var license_str = metadata['intrinsic-events'];
+  const license_str = metadata['intrinsic-events'];
   if (license_str === undefined) {
     console.log('No intrinsic events license');
     return false;
   }
   console.log(license_str);
 
-  var parts = license_str.split(' ');
+  const parts = license_str.split(' ');
   if (parts.length != 2) {
     console.log('invalid (>2 tokens)');
     return false;
@@ -1047,14 +1061,14 @@ function read_metadata(meta_element) {
 
 * 	Reads/changes the HTML of a page and the scripts within it.
 */
-async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
-  var parser = new DOMParser();
-  var html_doc = parser.parseFromString(html, 'text/html');
+async function editHtml(html: string, documentUrl: any, tabId: number, frameId: any, whitelisted: boolean) {
+  const parser = new DOMParser();
+  const html_doc = parser.parseFromString(html, 'text/html');
 
   // moves external licenses reference, if any, before any <SCRIPT> element
   ExternalLicenses.optimizeDocument(html_doc, { tabId, frameId, documentUrl });
 
-  let url = ListStore.urlItem(documentUrl);
+  const url = ListStore.urlItem(documentUrl);
 
   if (whitelisted) {
     // don't bother rewriting
@@ -1062,13 +1076,13 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
     return null;
   }
 
-  var scripts = html_doc.scripts;
+  let scripts = html_doc.scripts;
 
-  var meta_element = html_doc.getElementById('LibreJS-info');
-  var first_script_src = '';
+  const meta_element = html_doc.getElementById('LibreJS-info');
+  let first_script_src = '';
 
   // get the potential inline source that can contain a license
-  for (let script of scripts) {
+  for (const script of scripts) {
     // The script must be in-line and exist
     if (script && !script.src) {
       first_script_src = script.textContent;
@@ -1081,10 +1095,11 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
     license = legacy_license_lib.check(first_script_src);
   }
 
-  let findLine = (finder) => (finder.test(html) && html.substring(0, finder.lastIndex).split(/\n/).length) || 0;
+  const findLine = (finder: RegExp) =>
+    (finder.test(html) && html.substring(0, finder.lastIndex).split(/\n/).length) || 0;
   if (read_metadata(meta_element) || license) {
     console.log('Valid license for intrinsic events found');
-    let line, extras;
+    let line: any, extras: string;
     if (meta_element) {
       line = findLine(/id\s*=\s*['"]?LibreJS-info\b/gi);
       extras = '(0)';
@@ -1092,22 +1107,23 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
       line = html.substring(0, html.indexOf(first_script_src)).split(/\n/).length;
       extras = '\n' + first_script_src;
     }
-    let viewUrl = line
+    const viewUrl = line
       ? `view-source:${documentUrl}#line${line}(<${meta_element ? meta_element.tagName : 'SCRIPT'}>)${extras}`
       : url;
-    addReportEntry(tabId, url, { url, accepted: [viewUrl, `Global license for the page: ${license}`] });
+    await addReportEntry(tabId, url, { url, accepted: [viewUrl, `Global license for the page: ${license}`] });
     // Do not process inline scripts
-    scripts = [];
+    scripts = [] as any;
   } else {
-    let dejaVu = new Map(); // deduplication map & edited script cache
+    const dejaVu = new Map(); // deduplication map & edited script cache
     let modified = false;
     // Deal with intrinsic events
     let intrinsecindex = 0;
-    let intrinsicFinder = /<[a-z][^>]*\b(on\w+|href\s*=\s*['"]?javascript:)/gi;
-    for (let element of html_doc.all) {
+    const intrinsicFinder = /<[a-z][^>]*\b(on\w+|href\s*=\s*['"]?javascript:)/gi;
+    for (const element of html_doc.all) {
       let line = -1;
-      for (let attr of element.attributes) {
-        let { name, value } = attr;
+      for (const attr of element.attributes) {
+        const { name } = attr;
+        let { value } = attr;
         value = value.trim();
         if (name.startsWith('on') || (name === 'href' && value.toLowerCase().startsWith('javascript:'))) {
           intrinsecindex++;
@@ -1115,12 +1131,12 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
             line = findLine(intrinsicFinder);
           }
           try {
-            let key = `<${element.tagName} ${name}="${value}">`;
-            let edited;
+            const key = `<${element.tagName} ${name}="${value}">`;
+            let edited: string;
             if (dejaVu.has(key)) {
               edited = dejaVu.get(key);
             } else {
-              let url = `view-source:${documentUrl}#line${line}(<${element.tagName} ${name}>)\n${value.trim()}`;
+              const url = `view-source:${documentUrl}#line${line}(<${element.tagName} ${name}>)\n${value.trim()}`;
               if (name === 'href') value = decodeURIComponent(value);
               edited = await get_script(value, url, tabId, whitelist.contains(url));
               dejaVu.set(key, edited);
@@ -1137,18 +1153,18 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
     }
 
     let modifiedInline = false;
-    let scriptFinder = /<script\b/gi;
+    const scriptFinder = /<script\b/gi;
     for (let i = 0, len = scripts.length; i < len; i++) {
-      let script = scripts[i];
-      let line = findLine(scriptFinder);
+      const script = scripts[i];
+      const line = findLine(scriptFinder);
       if (!script.src && !(script.type && script.type !== 'text/javascript')) {
-        let source = script.textContent.trim();
-        let editedSource;
+        const source = script.textContent.trim();
+        let editedSource: string;
         if (dejaVu.has(source)) {
           editedSource = dejaVu.get(source);
         } else {
-          let url = `view-source:${documentUrl}#line${line}(<SCRIPT>)\n${source}`;
-          let edited = await get_script(source, url, tabId, whitelisted, i);
+          const url = `view-source:${documentUrl}#line${line}(<SCRIPT>)\n${source}`;
+          const edited = await get_script(source, url, tabId, whitelisted, i);
           editedSource = edited && edited[0].trim();
           dejaVu.set(url, editedSource);
         }
@@ -1175,9 +1191,9 @@ async function editHtml(html, documentUrl, tabId, frameId, whitelisted) {
 /**
  * Here we handle html document responses
  */
-async function handle_html(response, whitelisted) {
-  let { text, request } = response;
-  let { url, tabId, frameId, type } = request;
+async function handle_html(response: any, whitelisted: any) {
+  const { text, request } = response;
+  const { url, tabId, frameId, type } = request;
   if (type === 'main_frame') {
     activityReports[tabId] = await createReport({ url, tabId });
     updateBadge(tabId);
@@ -1185,29 +1201,18 @@ async function handle_html(response, whitelisted) {
   return await editHtml(text, url, tabId, frameId, whitelisted);
 }
 
-var whitelist = new ListStore('pref_whitelist', Storage.CSV);
-var blacklist = new ListStore('pref_blacklist', Storage.CSV);
-var listManager = new ListManager(
-  whitelist,
-  blacklist,
-  // built-in whitelist of script hashes, e.g. jQuery
-  Object.values(require('./hash_script/whitelist').whitelist)
-    .reduce((a, b) => a.concat(b)) // as a flat array
-    .map((script) => script.hash),
-);
-
 async function initDefaults() {
-  let defaults = {
+  const defaults = {
     pref_subject: 'Issues with Javascript on your website',
     pref_body: `Please consider using a free license for the Javascript on your website.
 
 [Message generated by LibreJS. See https://www.gnu.org/software/librejs/ for more information]
 `,
   };
-  let keys = Object.keys(defaults);
-  let prefs = await browser.storage.local.get(keys);
+  const keys = Object.keys(defaults);
+  const prefs = await browser.storage.local.get(keys);
   let changed = false;
-  for (let k of keys) {
+  for (const k of keys) {
     if (!(k in prefs)) {
       prefs[k] = defaults[k];
       changed = true;
@@ -1227,11 +1232,11 @@ async function init_addon() {
   await whitelist.load();
   browser.runtime.onConnect.addListener(connected);
   browser.storage.onChanged.addListener(options_listener);
-  browser.tabs.onRemoved.addListener(delete_removed_tab_info);
+  browser.tabs.onRemoved.addListener(delete_removed_tab_info as any);
   browser.tabs.onUpdated.addListener(onTabUpdated);
   browser.tabs.onActivated.addListener(onTabActivated);
   // Prevents Google Analytics from being loaded from Google servers
-  let all_types = [
+  const all_types = [
     'beacon',
     'csp_report',
     'font',
@@ -1253,16 +1258,20 @@ async function init_addon() {
     'xslt',
     'other',
   ];
-  browser.webRequest.onBeforeRequest.addListener(blockGoogleAnalytics, { urls: ['<all_urls>'], types: all_types }, [
-    'blocking',
-  ]);
-  browser.webRequest.onBeforeRequest.addListener(blockBlacklistedScripts, { urls: ['<all_urls>'], types: ['script'] }, [
-    'blocking',
-  ]);
-  browser.webRequest.onResponseStarted.addListener(
+  await browser.webRequest.onBeforeRequest.addListener(
+    blockGoogleAnalytics,
+    { urls: ['<all_urls>'], types: all_types as any },
+    ['blocking'],
+  );
+  await browser.webRequest.onBeforeRequest.addListener(
+    blockBlacklistedScripts,
+    { urls: ['<all_urls>'], types: ['script'] },
+    ['blocking'],
+  );
+  await browser.webRequest.onResponseStarted.addListener(
     (request) => {
-      let { tabId } = request;
-      let report = activityReports[tabId];
+      const { tabId } = request;
+      const report = activityReports[tabId];
       if (report) {
         updateBadge(tabId, activityReports[tabId]);
       }
@@ -1275,7 +1284,7 @@ async function init_addon() {
 
   legacy_license_lib.init();
 
-  let Test = require('./common/Test');
+  const Test = require('./common/Test');
   if (Test.getURL()) {
     // export testable functions to the global scope
     this.LibreJS = {
@@ -1284,7 +1293,7 @@ async function init_addon() {
       ExternalLicenses,
       ListManager,
       ListStore,
-      Storage,
+      Storage: StorageWrapper,
     };
     // create or focus the autotest tab if it's a debugging session
     if ((await browser.management.getSelf()).installType === 'development') {
@@ -1296,11 +1305,11 @@ async function init_addon() {
 /**
  *	Loads the contact finder on the given tab ID.
  */
-async function injectContactFinder(tabId) {
+async function injectContactFinder(tabId?: number) {
   await Promise.all([
     browser.tabs.insertCSS(tabId, { file: '/content/overlay.css', cssOrigin: 'user' }),
     browser.tabs.executeScript(tabId, { file: '/content/contactFinder.js' }),
   ]);
 }
 
-init_addon();
+void init_addon();

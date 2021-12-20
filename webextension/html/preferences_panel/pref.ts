@@ -25,14 +25,14 @@
 
   const LIST_NAMES = ['white', 'black'];
 
-  var Model = {
+  const Model: any = {
     lists: {},
     prefs: null,
 
     malformedUrl(url) {
       let error = null;
       try {
-        let objUrl = new URL(url);
+        const objUrl = new URL(url);
         url = objUrl.href;
         if (!objUrl.protocol.startsWith('http')) {
           error = 'Please enter http:// or https:// URLs only';
@@ -62,8 +62,8 @@
       }
     },
 
-    async addToList(list, ...items) {
-      let other = list === Model.lists.black ? Model.lists.white : Model.lists.black;
+    async addToList(list: any, ...items: any) {
+      const other = list === Model.lists.black ? Model.lists.white : Model.lists.black;
       this.saving = true;
       try {
         await Promise.all([other.remove(...items), list.store(...items)]);
@@ -73,21 +73,21 @@
     },
   };
   Model.loading = (async () => {
-    let prefsNames = ['whitelist', 'blacklist', 'subject', 'body'];
+    const prefsNames = ['whitelist', 'blacklist', 'subject', 'body'];
     Model.prefs = await browser.storage.local.get(prefsNames.map((name) => `pref_${name}`));
 
-    for (let listName of LIST_NAMES) {
-      let prefName = `pref_${listName}list`;
-      await (Model.lists[listName] = new ListStore(prefName, Storage.CSV)).load(Model.prefs[prefName]);
+    for (const listName of LIST_NAMES) {
+      const prefName = `pref_${listName}list`;
+      await (Model.lists[listName] = new ListStore(prefName, (Storage as any).CSV)).load(Model.prefs[prefName]);
     }
   })();
 
-  var Controller = {
+  const Controller: any = {
     init() {
-      let widgetsRoot = (this.root = document.getElementById('widgets'));
-      for (let widget of widgetsRoot.querySelectorAll('[id^="pref_"]')) {
+      const widgetsRoot = (this.root = document.getElementById('widgets'));
+      for (const widget of widgetsRoot.querySelectorAll<any>('[id^="pref_"]')) {
         if (widget.id in Model.lists) {
-          populateListUI(widget);
+          this.populateListUI(widget);
         } else if (widget.id in Model.prefs) {
           widget.value = Model.prefs[widget.id];
         }
@@ -96,10 +96,10 @@
       this.populateListUI();
       this.syncAll();
 
-      for (let ev in Listeners) {
+      for (const ev in Listeners) {
         widgetsRoot.addEventListener(ev, Listeners[ev]);
       }
-      document.getElementById('site').onfocus = (e) => {
+      document.getElementById('site').onfocus = (e: Event & any) => {
         if (!e.target.value.trim()) {
           e.target.value = 'https://';
         }
@@ -116,7 +116,7 @@
     },
 
     async addSite(list) {
-      let url = document.getElementById('site').value.trim();
+      const url = (document.getElementById('site') as any).value.trim();
 
       if (url && !Model.malformedUrl(url)) {
         await this.addToList(list, url);
@@ -128,7 +128,7 @@
       this.syncAll();
     },
     async swapSelection(list) {
-      let origin = list === Model.lists.black ? 'white' : 'black';
+      const origin = list === Model.lists.black ? 'white' : 'black';
       await this.addToList(
         list,
         ...Array.prototype.map.call(
@@ -144,15 +144,15 @@
     },
 
     syncSiteUI() {
-      let widget = document.getElementById('site');
-      let list2button = (listName) => document.getElementById(`cmd-${listName}list-site`);
+      const widget: any = document.getElementById('site');
+      const list2button = (listName) => document.getElementById(`cmd-${listName}list-site`) as HTMLButtonElement;
 
-      for (let bi of LIST_NAMES.map(list2button)) {
+      for (const bi of LIST_NAMES.map(list2button)) {
         bi.disabled = true;
       }
 
-      let url = widget.value.trim();
-      let malformedUrl = url && Model.malformedUrl(url);
+      const url = widget.value.trim();
+      const malformedUrl = url && Model.malformedUrl(url);
       widget.classList.toggle('error', !!malformedUrl);
       document.getElementById('site-error').textContent = malformedUrl || '';
       if (!url) return;
@@ -160,8 +160,8 @@
         widget.value = url;
       }
 
-      for (let listName of LIST_NAMES) {
-        let list = Model.lists[listName];
+      for (const listName of LIST_NAMES) {
+        const list = Model.lists[listName];
         if (!list.contains(url)) {
           list2button(listName).disabled = false;
         }
@@ -170,18 +170,18 @@
 
     syncListsUI() {
       let total = 0;
-      for (let id of ['black', 'white']) {
-        let selected = document.querySelectorAll(`select#${id} option:checked`).length;
-        let other = id === 'black' ? 'white' : 'black';
-        document.getElementById(`cmd-${other}list`).disabled = selected === 0;
+      for (const id of ['black', 'white']) {
+        const selected = document.querySelectorAll(`select#${id} option:checked`).length;
+        const other = id === 'black' ? 'white' : 'black';
+        (document.getElementById(`cmd-${other}list`) as any).disabled = selected === 0;
         total += selected;
       }
-      document.getElementById('cmd-delete').disabled = total === 0;
+      (document.getElementById('cmd-delete') as any).disabled = total === 0;
     },
 
     async deleteSelection() {
-      for (let id of ['black', 'white']) {
-        let selection = document.querySelectorAll(`select#${id} option:checked`);
+      for (const id of ['black', 'white']) {
+        const selection = document.querySelectorAll(`select#${id} option:checked`);
         await Model.lists[id].remove(...Array.prototype.map.call(selection, (option) => option.value));
       }
       this.populateListUI();
@@ -190,16 +190,16 @@
 
     populateListUI(widget) {
       if (!widget) {
-        for (let id of ['white', 'black']) {
+        for (const id of ['white', 'black']) {
           this.populateListUI(document.getElementById(id));
         }
         return;
       }
       widget.innerHTML = '';
-      let items = [...Model.lists[widget.id].items].sort();
-      let options = new DocumentFragment();
-      for (let item of items) {
-        let option = document.createElement('option');
+      const items = [...Model.lists[widget.id].items].sort();
+      const options = new DocumentFragment();
+      for (const item of items) {
+        const option = document.createElement('option');
         option.value = option.textContent = option.title = item;
         options.appendChild(option);
       }
@@ -207,20 +207,20 @@
     },
   };
 
-  var KeyEvents = {
-    Delete(e) {
+  const KeyEvents: any = {
+    Delete(e: Event & any) {
       if (e.target.matches('#lists select')) {
         Controller.deleteSelection();
       }
     },
-    Enter(e) {
+    Enter(e: Event & any) {
       if (e.target.id === 'site') {
         e.target.parentElement.querySelector('button[default]').click();
       }
     },
-    KeyA(e) {
+    KeyA(e: Event & any) {
       if (e.target.matches('select') && e.ctrlKey) {
-        for (let o of e.target.options) {
+        for (const o of e.target.options) {
           o.selected = true;
         }
         Controller.syncListsUI();
@@ -228,40 +228,40 @@
     },
   };
 
-  var Listeners = {
-    async change(e) {
-      let { target } = e;
-      let { id } = target;
+  const Listeners: any = {
+    async change(e: Event & any) {
+      const { target } = e;
+      const { id } = target;
 
       if (id in Model.lists) {
         Controller.syncListsUI();
-        let selection = target.querySelectorAll('option:checked');
+        const selection = target.querySelectorAll('option:checked');
         if (selection.length === 1) {
-          document.getElementById('site').value = selection[0].value;
+          (document.getElementById('site') as any).value = selection[0].value;
         }
         return;
       }
     },
 
-    click(e) {
-      let { target } = e;
+    click(e: Event & any) {
+      const { target } = e;
 
       if (!/^cmd-(white|black|delete)(list-site)?/.test(target.id)) return;
       e.preventDefault();
-      let cmd = RegExp.$1;
+      const cmd = RegExp.$1;
       if (cmd === 'delete') {
         Controller.deleteSelection();
         return;
       }
-      let list = Model.lists[cmd];
+      const list = Model.lists[cmd];
       if (list) {
         Controller[RegExp.$2 ? 'addSite' : 'swapSelection'](list);
         return;
       }
     },
 
-    keypress(e) {
-      let { code } = e;
+    keypress(e: Event & any) {
+      const { code } = e;
       if (code && typeof KeyEvents[code] === 'function') {
         if (KeyEvents[code](e) === false) {
           e.preventDefault();
@@ -270,16 +270,16 @@
       }
     },
 
-    async input(e) {
-      let { target } = e;
-      let { id } = target;
+    async input(e: Event & any) {
+      const { target } = e;
+      const { id } = target;
       if (!id) return;
 
       if (id === 'site') {
         Controller.syncSiteUI();
-        let url = target.value;
+        const url = target.value;
         if (url) {
-          let o = document.querySelector(`#lists select option[value="${url}"]`);
+          const o = document.querySelector<HTMLOptionElement>(`#lists select option[value="${url}"]`);
           if (o) {
             o.scrollIntoView();
             o.selected = true;
@@ -295,7 +295,7 @@
     },
   };
 
-  window.addEventListener('DOMContentLoaded', async (e) => {
+  window.addEventListener('DOMContentLoaded', async (e: Event & any) => {
     await Model.loading;
     Controller.init();
   });

@@ -20,17 +20,17 @@
  *
  */
 
-var fromTab = window.location.hash.match(/^#fromTab=(\d+)/) && RegExp.$1;
+const fromTab = window.location.hash.match(/^#fromTab=(\d+)/) && RegExp.$1;
 if (fromTab) {
-  let browserStyle = document.createElement('link');
+  const browserStyle = document.createElement('link');
   browserStyle.rel = 'stylesheet';
   browserStyle.href = 'chrome://browser/content/extension.css';
   document.head.appendChild(browserStyle);
   document.documentElement.classList.add('tab');
 }
 
-var myPort = browser.runtime.connect({ name: 'port-from-cs' });
-var currentReport;
+myPort = browser.runtime.connect({ name: 'port-from-cs' });
+let currentReport;
 
 // Sends a message that tells the background script the window is open
 myPort.postMessage({ update: true, tabId: parseInt((currentReport && currentReport.tabId) || fromTab) || '' });
@@ -39,9 +39,10 @@ myPort.postMessage({ update: true, tabId: parseInt((currentReport && currentRepo
 document.querySelector('#version').textContent = browser.runtime.getManifest().version;
 
 // Enable autotest button if this is a test-enabled build / session
-(async () => {
+declare let Test: any;
+void (async () => {
   if (await Test.getURL()) {
-    let button = document.querySelector('#autotest');
+    const button = document.querySelector('#autotest') as HTMLButtonElement;
     button.style.display = 'block';
     button.onclick = async () => {
       await Test.getTab(true);
@@ -50,18 +51,18 @@ document.querySelector('#version').textContent = browser.runtime.getManifest().v
   }
 })();
 
-var liTemplate = document.querySelector('#li-template');
+const liTemplate = document.querySelector('#li-template');
 liTemplate.remove();
 
 document.querySelector('#info').addEventListener('click', (e) => {
-  let button = e.target;
+  let button = e.target as HTMLButtonElement;
   if (button.tagName === 'A') {
     setTimeout(close, 100);
     return;
   }
   if (button.tagName !== 'BUTTON') button = button.closest('button');
   if (button.matches('.toggle-source')) {
-    let parent = button.parentNode;
+    const parent: any = button.parentNode;
     if (!parent.querySelector('.source').textContent) {
       parent.querySelector('a').click();
     } else {
@@ -70,12 +71,12 @@ document.querySelector('#info').addEventListener('click', (e) => {
     return;
   }
   if (!button.matches('.buttons > button')) return;
-  let domain = button.querySelector('.domain');
+  const domain = button.querySelector('.domain');
 
-  let li = button.closest('li');
-  let entry = (li && li._scriptEntry) || [currentReport.url, "Page's site"];
+  const li = button.closest('li');
+  const entry = (li && (li as any)._scriptEntry) || [currentReport.url, "Page's site"];
   let action = button.className;
-  let site = domain ? domain.textContent : button.name === '*' ? currentReport.site : '';
+  const site = domain ? domain.textContent : button.name === '*' ? currentReport.site : '';
 
   if (site) {
     [action] = action.split('-');
@@ -83,24 +84,24 @@ document.querySelector('#info').addEventListener('click', (e) => {
   myPort.postMessage({ [action]: entry, site, tabId: currentReport.tabId });
 });
 
-document.querySelector('#report-tab').onclick = (e) => {
+document.querySelector<HTMLButtonElement>('#report-tab').onclick = (e) => {
   myPort.postMessage({ report_tab: currentReport });
   close();
 };
 
-document.querySelector('#complain').onclick = (e) => {
+document.querySelector<HTMLButtonElement>('#complain').onclick = (e) => {
   myPort.postMessage({ invoke_contact_finder: currentReport });
   close();
 };
 
-document.querySelector('#open-options').onclick = (e) => {
-  browser.runtime.openOptionsPage();
+document.querySelector<HTMLButtonElement>('#open-options').onclick = (e) => {
+  void browser.runtime.openOptionsPage();
   close();
 };
 
-document.body.addEventListener('click', async (e) => {
+document.body.addEventListener('click', async (e: any) => {
   if (!e.target.matches('.reload')) return;
-  let { tabId } = currentReport;
+  const { tabId } = currentReport;
   if (tabId) {
     await browser.tabs.reload(tabId);
     myPort.postMessage({ update: true, tabId });
@@ -113,11 +114,11 @@ document.body.addEventListener('click', async (e) => {
  *	Groups are "unknown", "blacklisted", "whitelisted", "accepted", and "blocked".
  */
 function createList(data, group) {
-  var { url } = data;
+  const { url } = data;
   let entries = data[group];
-  let container = document.getElementById(group);
-  let heading = container.querySelector('h2');
-  var list = container.querySelector('ul');
+  const container = document.getElementById(group);
+  const heading = container.querySelector('h2');
+  const list = container.querySelector('ul');
   list.classList.toggle(group, true);
   if (Array.isArray(entries) && entries.length) {
     heading.innerHTML = `<span class="type-name">${group}</span> scripts in ${url}:`;
@@ -129,30 +130,30 @@ function createList(data, group) {
     container.classList.add('empty');
   }
   // generate list
-  let viewSourceToHuman = /^view-source:(.*)#line(\d+)\(([^)]*)\)[^]*/;
-  for (let entry of entries) {
+  const viewSourceToHuman = /^view-source:(.*)#line(\d+)\(([^)]*)\)[^]*/;
+  for (const entry of entries) {
     let [scriptId, reason] = entry;
-    let li = liTemplate.cloneNode(true);
-    let a = li.querySelector('a');
+    const li = liTemplate.cloneNode(true) as HTMLLIElement;
+    const a = li.querySelector('a');
     a.href = scriptId.split('(')[0];
     if (scriptId.startsWith('view-source:')) {
       a.target = 'LibreJS-ViewSource';
-      let source = scriptId.match(/\n([^]*)/);
+      const source = scriptId.match(/\n([^]*)/);
       if (source) {
         li.querySelector('.source').textContent = source[1];
-        li.querySelector('.toggle-source').style.display = 'inline';
+        (li.querySelector('.toggle-source') as any).style.display = 'inline';
       }
       scriptId = scriptId.replace(viewSourceToHuman, '$3 at line $2 of $1');
     }
     a.textContent = scriptId;
     li.querySelector('.reason').textContent = reason;
-    let bySite = !!reason.match(/https?:\/\/[^/]+\/\*/);
+    const bySite = !!reason.match(/https?:\/\/[^/]+\/\*/);
     li.classList.toggle('by-site', bySite);
     if (bySite) {
-      let domain = li.querySelector('.forget .domain');
+      const domain = li.querySelector('.forget .domain');
       if (domain) domain.textContent = RegExp.lastMatch;
     }
-    li._scriptEntry = entry;
+    (li as any)._scriptEntry = entry;
     list.appendChild(li);
   }
 }
@@ -173,24 +174,24 @@ function createList(data, group) {
  */
 function refreshUI(report) {
   currentReport = report;
-  let { siteStatus, listedSite } = report;
+  const { siteStatus, listedSite } = report;
   document.querySelector('#site').className = siteStatus || '';
   document.querySelector('#site h2').textContent = `This site ${report.site}`;
 
-  for (let toBeErased of document.querySelectorAll('#info h2:not(.site) > *, #info ul > *')) {
+  for (const toBeErased of document.querySelectorAll('#info h2:not(.site) > *, #info ul > *')) {
     toBeErased.remove();
   }
 
   let scriptsCount = 0;
-  for (let group of ['unknown', 'accepted', 'whitelisted', 'blocked', 'blacklisted']) {
+  for (const group of ['unknown', 'accepted', 'whitelisted', 'blocked', 'blacklisted']) {
     if (group in report) createList(report, group);
     scriptsCount += report[group].length;
   }
 
-  for (let b of document.querySelectorAll(`.forget, .whitelist, .blacklist`)) {
+  for (const b of document.querySelectorAll<HTMLButtonElement>(`.forget, .whitelist, .blacklist`)) {
     b.disabled = false;
   }
-  for (let b of document.querySelectorAll(
+  for (const b of document.querySelectorAll<HTMLButtonElement>(
     `.unknown .forget, .accepted .forget, .blocked .forget,
      .whitelisted .whitelist, .blacklisted .blacklist`,
   )) {
@@ -198,24 +199,24 @@ function refreshUI(report) {
   }
 
   if (siteStatus && siteStatus !== 'unknown') {
-    let siteContainer = document.querySelector('#site');
+    const siteContainer = document.querySelector('#site');
     let statusLabel = siteStatus;
     if (listedSite && listedSite !== report.site) {
       statusLabel += ` via ${listedSite}`;
-      siteContainer.querySelector('.forget').disabled = true;
+      siteContainer.querySelector<HTMLButtonElement>('.forget').disabled = true;
     }
-    let status = siteContainer.querySelector('.status');
+    const status = siteContainer.querySelector('.status');
     status.classList.add(siteStatus);
     status.textContent = statusLabel;
   } else {
     document.querySelector('#site .status').textContent = '';
   }
 
-  let noscript = scriptsCount === 0;
+  const noscript = scriptsCount === 0;
   document.body.classList.toggle('empty', noscript);
 }
 
-myPort.onMessage.addListener((m) => {
+myPort.onMessage.addListener((m: any) => {
   if (m.show_info) {
     refreshUI(m.show_info);
   }

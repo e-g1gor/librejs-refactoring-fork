@@ -29,7 +29,7 @@
  * LibreJS display panel about the webpage compliance.
  */
 
-var fs = require('fs');
+const fs = require('fs');
 
 (function libreJSCompliance() {
   const webdriver = require('selenium-webdriver');

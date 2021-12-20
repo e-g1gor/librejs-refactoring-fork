@@ -22,33 +22,33 @@
 {
   let licensedScripts = null;
 
-  let fetchWebLabels = async (args) => {
+  const fetchWebLabels = async (args: any) => {
     // see https://www.gnu.org/software/librejs/free-your-javascript.html#step3
-    let { map, cache } = args;
-    let link = document.querySelector(
+    const { map, cache } = args;
+    const link = document.querySelector(
       `link[rel="jslicense"], link[data-jslicense="1"], a[rel="jslicense"], a[data-jslicense="1"]`,
-    );
-    let baseURL = link ? link.href : cache.webLabels && new URL(cache.webLabels.href, document.baseURI);
+    ) as HTMLLinkElement;
+    const baseURL = link ? link.href : cache.webLabels && new URL(cache.webLabels.href, document.baseURI);
     if (baseURL)
       try {
-        let response = await fetch(baseURL);
+        const response = await fetch(baseURL as any);
         if (!response.ok) throw `${response.status} ${response.statusText}`;
-        let doc = new DOMParser().parseFromString(await response.text(), 'text/html');
-        let base = doc.querySelector('base');
+        const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const base = doc.querySelector('base');
         if (base) {
           base.href = base.href;
         } else {
-          doc.head.appendChild(doc.createElement('base')).href = baseURL;
+          doc.head.appendChild(doc.createElement('base')).href = baseURL as any;
         }
-        let link = (a) => ({ url: a.href, label: a.textContent });
-        let firstLink = (parent) => link(parent.querySelector('a'));
-        let allLinks = (parent) => Array.prototype.map.call(parent.querySelectorAll('a'), link);
-        for (let row of doc.querySelectorAll('table#jslicense-labels1 > tbody > tr')) {
+        const link = (a) => ({ url: a.href, label: a.textContent });
+        const firstLink = (parent: HTMLTableCellElement) => link(parent.querySelector('a'));
+        const allLinks = (parent: HTMLTableCellElement) => Array.prototype.map.call(parent.querySelectorAll('a'), link);
+        for (const row of doc.querySelectorAll('table#jslicense-labels1 > tbody > tr')) {
           try {
-            let cols = row.querySelectorAll('td');
-            let script = firstLink(cols[0]);
-            let licenseLinks = allLinks(cols[1]);
-            let sources = cols[2] ? allLinks(cols[2]) : [];
+            const cols = row.querySelectorAll('td');
+            const script = firstLink(cols[0]);
+            const licenseLinks = allLinks(cols[1]);
+            const sources = cols[2] ? allLinks(cols[2]) : [];
             map.set(script.url, { script, licenseLinks, sources });
           } catch (e) {
             console.error('LibreJS: error parsing Web Labels at %s, row %s', baseURL, row.innerHTML, e);
@@ -60,9 +60,9 @@
     return map;
   };
 
-  let fetchLicenseInfo = async (cache) => {
-    let map = new Map();
-    let args = { map, cache };
+  const fetchLicenseInfo = async (cache: any) => {
+    const map = new Map();
+    const args = { map, cache };
     // in the fetchXxx methods we add to a map whatever license(s)
     // URLs and source code references we can find in various formats
     // (WebLabels is currently the only implementation), keyed by script URLs.
@@ -75,19 +75,19 @@
     return map;
   };
 
-  let handlers = {
-    async checkLicensedScript(m) {
-      let { url, cache } = m;
+  const handlers = {
+    async checkLicensedScript(m: any) {
+      const { url, cache } = m;
       if (!licensedScripts) licensedScripts = await fetchLicenseInfo(cache);
       return licensedScripts.get(url) || licensedScripts.get(url.replace(/\?.*/, ''));
     },
   };
 
-  browser.runtime.onMessage.addListener(async (m) => {
+  browser.runtime.onMessage.addListener(async (m: any) => {
     if (m.action in handlers)
       try {
         debug('Received message', m);
-        let result = await handlers[m.action](m);
+        const result = await handlers[m.action](m);
         return result;
       } catch (e) {
         console.error(e);

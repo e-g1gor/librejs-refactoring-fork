@@ -24,22 +24,27 @@
   only the "interesting" HTML and script requests and leaving the other alone
 */
 
-let { ResponseMetaData } = require('./ResponseMetaData');
+const { ResponseMetaData } = require('./ResponseMetaData');
 
-let listeners = new WeakMap();
-let webRequestEvent = browser.webRequest.onHeadersReceived;
+const listeners = new WeakMap();
+const webRequestEvent = browser.webRequest.onHeadersReceived;
 
 class ResponseProcessor {
-  static install(handler, types = ['main_frame', 'sub_frame', 'script']) {
+  static ACCEPT: any;
+
+  static install(
+    handler: any,
+    types: browser.webRequest.ResourceType[] = ['main_frame', 'sub_frame', 'script'],
+  ): boolean {
     if (listeners.has(handler)) return false;
-    let listener = async (request) => await new ResponseTextFilter(request).process(handler);
+    const listener = async (request: any) => await new ResponseTextFilter(request).process(handler);
     listeners.set(handler, listener);
-    webRequestEvent.addListener(listener, { urls: ['<all_urls>'], types }, ['blocking', 'responseHeaders']);
+    void webRequestEvent.addListener(listener, { urls: ['<all_urls>'], types }, ['blocking', 'responseHeaders']);
     return true;
   }
 
-  static uninstall(handler) {
-    let listener = listeners.get(handler);
+  static uninstall(handler: any): void {
+    const listener = listeners.get(handler);
     if (listener) {
       webRequestEvent.removeListener(listener);
     }
@@ -54,41 +59,45 @@ Object.assign(ResponseProcessor, {
 });
 
 class ResponseTextFilter {
-  constructor(request) {
+  request: any;
+  metaData: any;
+  canProcess: boolean;
+
+  constructor(request: { type: any; statusCode: any }) {
     this.request = request;
-    let { type, statusCode } = request;
-    let md = (this.metaData = new ResponseMetaData(request));
+    const { type, statusCode } = request;
+    const md = (this.metaData = new ResponseMetaData(request));
     this.canProcess = // we want to process html documents and scripts only
       (statusCode < 300 || statusCode >= 400) && // skip redirections
       !md.disposition && // skip forced downloads
       (type === 'script' || /\bhtml\b/i.test(md.contentType));
   }
 
-  async process(handler) {
+  async process(handler: any) {
     if (!this.canProcess) return ResponseProcessor.ACCEPT;
-    let { metaData, request } = this;
-    let response = { request, metaData }; // we keep it around allowing callbacks to store state
+    const { metaData, request } = this;
+    const response: any = { request, metaData }; // we keep it around allowing callbacks to store state
     if (typeof handler.pre === 'function') {
-      let res = await handler.pre(response);
+      const res = await handler.pre(response);
       if (res) return res;
       if (handler.post) handler = handler.post;
       if (typeof handler !== 'function') return ResponseProcessor.ACCEPT;
     }
 
-    let { requestId, responseHeaders } = request;
-    let filter = browser.webRequest.filterResponseData(requestId);
+    const { requestId, responseHeaders } = request;
+    const filter = browser.webRequest.filterResponseData(requestId);
     let buffer = [];
 
     filter.ondata = (event) => {
       buffer.push(event.data);
     };
 
-    filter.onstop = async (event) => {
+    filter.onstop = async () => {
       // concatenate chunks
-      let size = buffer.reduce((sum, chunk, n) => sum + chunk.byteLength, 0);
+      const size = buffer.reduce((sum, chunk) => sum + chunk.byteLength, 0);
       let allBytes = new Uint8Array(size);
       let pos = 0;
-      for (let chunk of buffer) {
+      for (const chunk of buffer) {
         allBytes.set(new Uint8Array(chunk), pos);
         pos += chunk.byteLength;
       }
@@ -113,7 +122,7 @@ class ResponseTextFilter {
       }
       if (editedText !== null) {
         // we changed the content, let's re-encode
-        let encoded = new TextEncoder().encode(editedText);
+        const encoded = new TextEncoder().encode(editedText);
         // pre-pending the UTF-8 BOM will force the charset per HTML 5 specs
         allBytes = new Uint8Array(encoded.byteLength + 3);
         allBytes.set(ResponseMetaData.UTF8BOM, 0); // UTF-8 BOM
@@ -127,4 +136,4 @@ class ResponseTextFilter {
   }
 }
 
-module.exports = { ResponseProcessor };
+export = { ResponseProcessor };

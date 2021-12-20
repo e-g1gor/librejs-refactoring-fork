@@ -19,13 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU LibreJS.  If not, see <http://www.gnu.org/licenses/>.
  */
-exports.types = {
+export const types = {
   SHORT: 'short',
   LAZY: 'lazy',
   FULL: 'full',
 };
 
-var type = exports.types;
+const type = exports.types;
 
 /**
  * List of all the licenses.
@@ -35,7 +35,7 @@ var type = exports.types;
  * corresponds to their identifier as specified by SPDX here:
  *   https://spdx.org/licenses/
  */
-exports.licenses = {
+export const licenses = {
   'CC0-1.0': {
     licenseName: 'Creative Commons CC0 1.0 Universal',
     identifier: 'CC0-1.0',

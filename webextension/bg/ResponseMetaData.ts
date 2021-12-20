@@ -29,10 +29,15 @@ const BOM = [0xef, 0xbb, 0xbf];
 const DECODER_PARAMS = { stream: true };
 
 class ResponseMetaData {
-  constructor(request) {
-    let { responseHeaders } = request;
+  headers: any;
+  computedCharset: string;
+  contentType: any;
+  static UTF8BOM: Uint8Array;
+
+  constructor(request: { responseHeaders: any }) {
+    const { responseHeaders } = request;
     this.headers = {};
-    for (let h of responseHeaders) {
+    for (const h of responseHeaders) {
       if (/^\s*Content-(Type|Disposition)\s*$/i.test(h.name)) {
         let propertyName = h.name.split('-')[1].trim();
         propertyName = `content${propertyName.charAt(0).toUpperCase()}${propertyName.substring(1).toLowerCase()}`;
@@ -43,10 +48,10 @@ class ResponseMetaData {
     this.computedCharset = '';
   }
 
-  get charset() {
+  get charset(): string {
     let charset = '';
     if (this.contentType) {
-      let m = this.contentType.match(/;\s*charset\s*=\s*(\S+)/);
+      const m = this.contentType.match(/;\s*charset\s*=\s*(\S+)/);
       if (m) {
         charset = m[1];
       }
@@ -55,10 +60,10 @@ class ResponseMetaData {
     return (this.computedCharset = charset);
   }
 
-  decode(data) {
+  decode(data: BufferSource): string {
     let charset = this.charset;
     let decoder = this.createDecoder();
-    let text = decoder.decode(data, DECODER_PARAMS);
+    const text = decoder.decode(data, DECODER_PARAMS);
     if (!charset && /html/i.test(this.contentType)) {
       // missing HTTP charset, sniffing in content...
 
@@ -68,13 +73,13 @@ class ResponseMetaData {
       }
 
       // let's try figuring out the charset from <meta> tags
-      let parser = new DOMParser();
-      let doc = parser.parseFromString(text, 'text/html');
-      let meta = doc.querySelectorAll('meta[charset], meta[http-equiv="content-type"], meta[content*="charset"]');
-      for (let m of meta) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const meta = doc.querySelectorAll('meta[charset], meta[http-equiv="content-type"], meta[content*="charset"]');
+      for (const m of meta) {
         charset = m.getAttribute('charset');
         if (!charset) {
-          let match = m.getAttribute('content').match(/;\s*charset\s*=\s*([\w-]+)/i);
+          const match = m.getAttribute('content').match(/;\s*charset\s*=\s*([\w-]+)/i);
           if (match) charset = match[1];
         }
         if (charset) {
@@ -89,7 +94,7 @@ class ResponseMetaData {
     return text;
   }
 
-  createDecoder(charset = this.charset, def = 'latin1') {
+  createDecoder(charset = this.charset, def = 'latin1'): TextDecoder | null {
     if (charset) {
       try {
         return new TextDecoder(charset);
@@ -102,4 +107,4 @@ class ResponseMetaData {
 }
 ResponseMetaData.UTF8BOM = new Uint8Array(BOM);
 
-module.exports = { ResponseMetaData };
+export = { ResponseMetaData };

@@ -20,7 +20,7 @@
  * along with GNU LibreJS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-exports.patternUtils = {
+export const patternUtils = {
   /**
    * removeNonalpha
    *
@@ -28,15 +28,15 @@ exports.patternUtils = {
    * < and >, since they are what we use for tokens.
    *
    */
-  removeNonalpha: function (str) {
-    var regex = /[^a-z0-9<>@]+/gi;
+  removeNonalpha: function (str: string): string {
+    const regex = /[^a-z0-9<>@]+/gi;
     return str.replace(regex, '');
   },
-  removeWhitespace: function (str) {
+  removeWhitespace: function (str: string): string {
     return str.replace(/\/\//gim, '').replace(/\*/gim, '').replace(/\s+/gim, '');
   },
-  replaceTokens: function (str) {
-    var regex = /<.*?>/gi;
+  replaceTokens: function (str: string): string {
+    const regex = /<.*?>/gi;
     return str.replace(regex, '.*?');
   },
 };

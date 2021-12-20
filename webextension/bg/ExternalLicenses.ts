@@ -25,13 +25,13 @@
 
 'use strict';
 
-let licensesByLabel = new Map();
-let licensesByUrl = new Map();
+const licensesByLabel = new Map();
+const licensesByUrl = new Map();
 {
-  let { licenses } = require('../license_definitions');
-  let mapByLabel = (label, license) => licensesByLabel.set(label.toUpperCase(), license);
-  for (let [id, l] of Object.entries(licenses)) {
-    let { identifier, canonicalUrl, licenseName } = l;
+  const { licenses } = require('../license_definitions');
+  const mapByLabel = (label: string, license: unknown) => licensesByLabel.set(label.toUpperCase(), license);
+  for (const [id, l] of Object.entries<any>(licenses)) {
+    const { identifier, canonicalUrl, licenseName } = l;
     if (identifier) {
       mapByLabel(identifier, l);
     } else {
@@ -44,26 +44,26 @@ let licensesByUrl = new Map();
       mapByLabel(licenseName, l);
     }
     if (Array.isArray(canonicalUrl)) {
-      for (let url of canonicalUrl) {
+      for (const url of canonicalUrl) {
         licensesByUrl.set(url, l);
       }
     }
   }
 }
 
-let cachedHrefs = new Map();
+const cachedHrefs = new Map();
 
-var ExternalLicenses = {
-  purgeCache(tabId) {
+const ExternalLicenses = {
+  purgeCache(tabId: number): void {
     cachedHrefs.delete(tabId);
   },
 
-  async check(script) {
-    let { url, tabId, frameId, documentUrl } = script;
-    let tabCache = cachedHrefs.get(tabId);
-    let frameCache = tabCache && tabCache.get(frameId);
-    let cache = frameCache && frameCache.get(documentUrl);
-    let scriptInfo = await browser.tabs.sendMessage(
+  async check(script: any) {
+    const { url, tabId, frameId, documentUrl } = script;
+    const tabCache = cachedHrefs.get(tabId);
+    const frameCache = tabCache && tabCache.get(frameId);
+    const cache = frameCache && frameCache.get(documentUrl);
+    const scriptInfo: any = await browser.tabs.sendMessage(
       tabId,
       {
         action: 'checkLicensedScript',
@@ -78,13 +78,13 @@ var ExternalLicenses = {
     }
     scriptInfo.licenses = new Set();
     scriptInfo.toString = function () {
-      let licenseIds = [...this.licenses]
+      const licenseIds = [...this.licenses]
         .map((l) => l.identifier)
         .sort()
         .join(', ');
       return licenseIds ? `Free license${this.licenses.size > 1 ? 's' : ''} (${licenseIds})` : 'Unknown license(s)';
     };
-    let match = (map, key) => {
+    const match = (map: Map<any, any>, key: any) => {
       if (map.has(key)) {
         scriptInfo.licenses.add(map.get(key));
         return true;
@@ -108,9 +108,9 @@ var ExternalLicenses = {
    * modify the rendered HTML but rather feed the content script on demand.
    * Returns true if the document has been actually modified, false otherwise.
    */
-  optimizeDocument(doc, cachePointer) {
-    let cache = {};
-    let { tabId, frameId, documentUrl } = cachePointer;
+  optimizeDocument(doc: any, cachePointer: any): boolean {
+    const cache: any = {};
+    const { tabId, frameId, documentUrl } = cachePointer;
     let frameCache = cachedHrefs.get(tabId);
     if (!frameCache) {
       cachedHrefs.set(tabId, (frameCache = new Map()));
@@ -121,9 +121,9 @@ var ExternalLicenses = {
       `link[rel="jslicense"], link[data-jslicense="1"], a[rel="jslicense"], a[data-jslicense="1"]`,
     );
     if (link) {
-      let href = link.getAttribute('href');
+      const href = link.getAttribute('href');
       cache.webLabels = { href };
-      let move = () => !!doc.head.insertBefore(link, doc.head.firstChild);
+      const move = () => !!doc.head.insertBefore(link, doc.head.firstChild);
       if (link.parentNode === doc.head) {
         for (let node = link; (node = node.previousElementSibling); ) {
           if (node.tagName.toUpperCase() === 'SCRIPT') {
@@ -133,7 +133,7 @@ var ExternalLicenses = {
       } else {
         // the reference is only in the body
         if (link.tagName.toUpperCase() === 'A') {
-          let newLink = doc.createElement('link');
+          const newLink = doc.createElement('link');
           newLink.rel = 'jslicense';
           newLink.setAttribute('href', href);
           link = newLink;
@@ -146,4 +146,4 @@ var ExternalLicenses = {
   },
 };
 
-module.exports = { ExternalLicenses };
+export { ExternalLicenses };
