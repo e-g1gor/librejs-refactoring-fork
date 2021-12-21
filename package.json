@@ -65,8 +65,8 @@
     "release:major": "npm version major -m \"Released new major version %s on `date +'%Y-%m-%d'`.\"",
     "release:minor": "npm version minor -m \"Released new minor version %s on `date +'%Y-%m-%d'`.\"",
     "release:patch": "npm version patch -m \"Released new patch version %s on `date +'%Y-%m-%d'`.\"",
-    "preversion": "git pull --ff-only && npm run build && git add .",
-    "webext:firefox": "./node_modules/.bin/web-ext run --source-dir ./build_temp/"
+    "preversion": "git pull --ff-only && npm run build:tests && git add .",
+    "webext:firefox": "./node_modules/.bin/web-ext run --no-reload --source-dir ./build_temp/"
   },
   "repository": {
     "type": "git",
