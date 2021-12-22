@@ -33,17 +33,29 @@ npm run build:tests
 Scripts in package json:
 
 `npm run build` - build extension xpi file
+
 `npm run build:tests` - build extension xpi file, performing headless tests after packaging and print results
+
 `npm run watch` - watch changes in `./webextension` folder, rebuild and reload extension to browser automatically on each change
+
 `npm run watch:tests` - same as `npm run watch`, but run headless tests before loading new xpi to browser on each change
+
 `npm test` - run headless browser tests on built `./librejs.xpi` file
+
 `npm run lint` - run eslint + tsc checks on sources, print errors only
+
 `npm run lint:verbose` - run eslint + tsc checks on sources, print all issues, including warnings
+
 `npm run format` - format sources using [prettier](https://www.npmjs.com/package/prettier)
+
 `npm run compliance` - run `./scripts/compliance.js` script, for example `npm run compliance https://startpage.com`. Its easier to use with npm to avoid `PATH` modifying.
+
 `npm run release:major` - bump major version in package.json, and add corresponding git tag localy.
+
 `npm run release:minor` - bump minor version in package.json, and add corresponding git tag localy.
+
 `npm run release:patch` - bump patch version in package.json, and add corresponding git tag localy.
+
 `npm run webext:firefox` - deploy `./librejs.xpi` file to firefox browser with help of [web-ext tool](https://github.com/mozilla/web-ext)
 
 `npm run compile:ts` - used in `./scripts/build.js`, compiles TS sources in `./build_temp` folder. Not supposed to be used directly
